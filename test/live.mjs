@@ -1,0 +1,15 @@
+import { chromium } from 'playwright';
+const b = await chromium.launch({ headless: true, executablePath: 'C:/Users/canal/AppData/Local/ms-playwright/chromium-1193/chrome-win/chrome.exe', args: ['--use-angle=d3d11','--enable-gpu','--ignore-gpu-blocklist','--enable-webgl'] });
+const p = await (await b.newContext({ viewport: { width: 1280, height: 720 } })).newPage();
+const errs = []; p.on('pageerror', e => errs.push(e.message)); p.on('console', m => { if (m.type() === 'error') errs.push(m.text().slice(0,300)); });
+await p.goto('https://palomex.vercel.app/');
+await p.waitForFunction(() => window.__g, { timeout: 90000 });
+await p.waitForTimeout(1200);
+await p.click('#btnStart');
+await p.waitForTimeout(3000);
+await p.keyboard.press('ArrowLeft');
+await p.waitForTimeout(300);
+console.log('titulo', await p.title(), '| estado', await p.evaluate(() => window.__g.game.state), '| pista', await p.evaluate(() => window.__g.game.lane), '| degrau', await p.evaluate(() => window.__g.post.tierName));
+await p.screenshot({ path: 'test/live.png' });
+console.log(errs.join('\n') || 'sem erros');
+await b.close();

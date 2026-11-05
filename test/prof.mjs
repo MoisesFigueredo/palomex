@@ -1,0 +1,14 @@
+import { chromium } from 'playwright';
+const b = await chromium.launch({ headless: true, executablePath: 'C:/Users/canal/AppData/Local/ms-playwright/chromium-1193/chrome-win/chrome.exe', args: ['--use-angle=d3d11','--enable-gpu','--ignore-gpu-blocklist','--enable-webgl','--disable-gpu-vsync','--disable-frame-rate-limit'] });
+const mob = process.argv[2]==='1';
+const ctx = await b.newContext({ viewport: mob?{width:390,height:844}:{width:1280,height:720}, deviceScaleFactor: mob?2:1, hasTouch:mob, isMobile:mob, userAgent: mob?'Mozilla/5.0 (Linux; Android 13; Pixel 7) Mobile':undefined });
+const p = await ctx.newPage();
+await p.goto('http://localhost:5199/');
+const t0=Date.now();
+await p.waitForFunction(() => window.__g, { timeout: 170000 });
+const ms = await p.evaluate(() => performance.getEntriesByType('mark').map(m=>[m.name,Math.round(m.startTime)]));
+console.log('total desde goto', Date.now()-t0, JSON.stringify(ms));
+await p.evaluate(() => { const G=window.__g; G.game.god=true; G.start(); window.__long=[]; let l=performance.now(); (function f(){const n=performance.now(); if(n-l>60) window.__long.push({ms:Math.round(n-l),st:G.game.state,d:Math.floor(G.game.dist),t:Math.round(n)}); l=n; requestAnimationFrame(f)})(); });
+await p.waitForTimeout(12000);
+console.log('quadros longos', JSON.stringify(await p.evaluate(()=>window.__long)));
+await b.close();
