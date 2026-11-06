@@ -81,7 +81,7 @@ const game = {
   lane: 0, px: 0, y: 0, vy: 0, grounded: true, sliding: 0, inv: 0, bufferJump: 0, combo: 0, comboT: 0,
   nextRow: 26, evtT: 7, lookT: 3, look: 0, roar: 0, lunge: 0, stun: 0, pounce: 0, bite: false,
   camK: 0, camD: 0, shake: 0, hitFx: 0, flashFx: 0, atmos: -1, fearCam: 0, mx: 0, slideFx: 0,
-  boulder: null, wallet: store.get('cg-wallet', 0), owned: store.get('cg-owned', []), equip: store.get('cg-equip', {}), camS: 0, camT: 0, nextBonusAt: 170, bonus: null, portalKind: null, tubeKind: null, bendX: 0, bendY: -0.0004, bendTX: 0, bendTY: -0.0004, bendT: 0, runTime: 0, hat: null, best: store.get('cg-best', 0),
+  wallet: store.get('cg-wallet', 0), owned: store.get('cg-owned', []), equip: store.get('cg-equip', {}), camS: 0, camT: 0, nextBonusAt: 170, bonus: null, portalKind: null, tubeKind: null, bendX: 0, bendY: -0.0004, bendTX: 0, bendTY: -0.0004, bendT: 0, runTime: 0, hat: null, best: store.get('cg-best', 0),
 };
 let forestGroup, tube, wardrobe, birds, gnome, monster, props, burst, ground, skyU, moon, post, blob, ringMark, hatMesh;
 const tmp = new THREE.Vector3();
@@ -138,12 +138,6 @@ async function boot() {
   ringMark.renderOrder = 2;
   scene.add(ringMark);
 
-  // pedregulho arremessado usa a geometria do catálogo
-  game.bMesh = new THREE.Mesh(props.kinds.rock.geo, props.mat);
-  game.bMesh.frustumCulled = false; game.bMesh.castShadow = true; game.bMesh.visible = true;
-  game.bMesh.position.y = -50;
-  scene.add(game.bMesh);
-
   hatMesh = new THREE.Mesh(makeHatProp(), patch(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.75 }), { rim: 0.8 }));
   hatMesh.frustumCulled = false; hatMesh.castShadow = true; hatMesh.position.y = -50;
   scene.add(hatMesh);
@@ -153,10 +147,10 @@ async function boot() {
     if (game.state === 'run' && Math.random() < 0.7) burst.emit(game.px + side * 0.09, 0.06, -0.08, 2, { speed: 1, up: 0.8, color: '#a58a6a', size: 0.09, life: 0.42, grav: 1.5, power: 0.55 });
   };
   monster.onFootfall = (i) => {
-    const near = clamp(1 - (monsterDist() - 2.5) / 7);
+    const near = clamp(1 - (monsterDist() - 2.5) / 3.5);
     if (game.state === 'run' || game.state === 'intro') {
-      game.shake = Math.max(game.shake, 0.06 + near * 0.26);
-      if (i < 2 || Math.random() < 0.5) audio.thud(0.25 + near * 0.8);
+      if (near > 0) game.shake = Math.max(game.shake, near * 0.3);
+      if (near > 0 && (i < 2 || Math.random() < 0.5)) audio.thud(0.12 + near * 0.8);
       const b = monster.group.position;
       const sx = i % 2 === 0 ? 1.4 : -1.4, sz = i < 2 ? 1.3 : -1.5;
       burst.emit(b.x + sx, 0.1, b.z + sz, 7, { speed: 2.2, up: 0.8, color: '#9d8a70', size: 0.34, life: 0.8, grav: 0.8, power: 0.4 });
@@ -184,7 +178,6 @@ async function boot() {
   tube.sled.visible = false;
   tube.portal.visible = false;
   for (const k in tube.items) tube.items[k].visible = false;
-  game.bMesh.visible = false;
   hatMesh.visible = false;
 
   await setProgress(1, 'Pronto');
@@ -192,7 +185,7 @@ async function boot() {
   showTitle();
   syncScore(); // reenvia recorde que não chegou (sem internet na hora)
   gsap.to(ui.loader, { opacity: 0, duration: 0.7, onComplete: () => { ui.loader.hidden = true; } });
-  window.__g = { game, gnome, monster, props, camera, post, input: act, start: startRun, renderer, X, syncScore, birds, launchFlock, wardrobe, openShop, closeShop, goMenu, tube, spawnBonus, enterTube, dropBranch, spawnVine, spawnRow, springRow, logRow, jumpPath, speedAt };
+  window.__g = { game, gnome, monster, props, camera, post, input: act, start: startRun, renderer, X, syncScore, birds, launchFlock, wardrobe, openShop, closeShop, goMenu, launchOne, LIFE: { HIT_DAMAGE, FLASH_HEAL, LIFE_REGEN, LIFE_SAFE }, tube, spawnBonus, enterTube, dropHazard, spawnVine, spawnRow, springRow, logRow, jumpPath, speedAt };
 }
 
 function blobTex() {
@@ -418,9 +411,8 @@ function doFlash() {
   if (game.charge < 1) { gnome.squashV -= 1.5; return; }
   game.charge = 0;
   game.stun = 1.5;
-  forgive();
   if (game.fall) { game.fall = null; ringMark.material.opacity = 0; }
-  game.gap = Math.min(100, game.gap + 38);
+  game.gap = Math.min(100, game.gap + FLASH_HEAL); // recupera parte da vida, não toda
   gnome.flashBoost = 1;
   gsap.fromTo(game, { flashFx: 0.85 }, { flashFx: 0, duration: 0.8, ease: 'power2.out' });
   gsap.fromTo(G.uFlash, { value: 1.1 }, { value: 0, duration: 1.0, ease: 'power2.out' });
@@ -446,16 +438,15 @@ function hitObstacle(o) {
   burst.emit(o.x, 0.6, o.z, 24, { speed: 6, up: 1, color: '#a98d68', size: 0.2, life: 0.8, power: 0.8, grav: 8 });
   hurt();
 }
-// Dois tapas e morre. O primeiro põe o monstro no pescoço; a barra só volta com perdão.
-const FORGIVE_S = 20;
-const WOUNDED_GAP = 24;
-function forgive() { game.hits = 0; game.hitT = 0; }
+// Vida de 100. Cada tapa tira 60: com 60 ou menos, o próximo mata.
+const HIT_DAMAGE = 60;
+const LIFE_SAFE = 60; // acima disto, aguenta um tapa e o monstro já saiu de cena
+const LIFE_REGEN = 2.5; // por segundo: de 40 a mais de 60 em 10 s
+const FLASH_HEAL = 40;
 function hurt() {
   game.inv = 1.15;
-  const dead = game.hits >= 1 || game.gap - 34 <= 0; // batidas na beirada também encurtam a margem
-  game.hits = (game.hits || 0) + 1;
-  game.hitT = FORGIVE_S;
-  game.gap = dead ? 0 : Math.min(game.gap - 34, WOUNDED_GAP);
+  const dead = game.gap <= HIT_DAMAGE;
+  game.gap = dead ? 0 : game.gap - HIT_DAMAGE;
   game.speed *= 0.68;
   game.sliding = 0;
   game.shake = 0.8;
@@ -486,18 +477,16 @@ function showTitle() {
 function resetRun() {
   props.clear();
   Object.assign(game, {
-    dist: 0, speed: 0, acorns: 0, gap: 66, charge: 0, lane: 0, px: 0, y: 0, vy: 0, grounded: true, sliding: 0, inv: 0,
-    nextRow: 30, evtT: 8, lookT: 3, look: 0, roar: 0, lunge: 0, stun: 0, pounce: 0, bite: false, boulder: null, combo: 0,
+    dist: 0, speed: 0, acorns: 0, gap: 100, charge: 0, lane: 0, px: 0, y: 0, vy: 0, grounded: true, sliding: 0, inv: 0,
+    nextRow: 30, evtT: 8, lookT: 3, look: 0, roar: 0, lunge: 0, stun: 0, pounce: 0, bite: false, combo: 0,
     atmos: -1, camD: 0, runTime: 0, bendTX: 0, bendTY: -0.0004, bendT: 4, slideAfter: false, gnomeLift: 0, hat: null,
   });
   birds.hideAll();
-  game.birdCues = []; game.birdCool = 5; game.birdSeen = false;
+  game.birdCues = []; game.birdCool = 5; game.birdSeen = false; game.tatuSeen = false;
   leaveTubeWorld();
   hideBonus();
-  forgive();
   game.fall = null; game.fallT = 5;
   game.nextBonusAt = 170;
-  game.bMesh.visible = false;
   hatMesh.visible = false;
   gnome.group.position.set(0, 0, 0);
   gnome.group.rotation.set(0, 0, 0);
@@ -549,7 +538,7 @@ function caught() {
   game.timeScale = 0.35;
   for (let i = props.live.length - 1; i >= 0; i--) { const o = props.live[i]; if (o.z > -12 && o.z < 16) { burst.emit(o.x, 0.6, o.z, 10, { speed: 5, up: 1, color: '#a98d68', size: 0.2, life: 0.6, power: 0.7, grav: 8 }); props.remove(i); } }
   props.acornList.length = 0;
-  game.boulder = null; game.bMesh.visible = false; ringMark.material.opacity = 0; game.fall = null;
+  ringMark.material.opacity = 0; game.fall = null;
   birds.hideAll(); game.birdCues = [];
   gsap.to(game, { camD: 1, duration: 1.1, ease: 'power2.inOut' });
   gsap.to(game, { timeScale: 0.85, duration: 0.8, delay: 0.5 });
@@ -1082,93 +1071,75 @@ function updateTrack(dt) {
   }
 }
 
-/* ---------- galho despencando das árvores ---------- */
-function dropBranch(lane, T = 1.05) {
-  if (game.fall || game.boulder || game.portalKind) return null;
-  const landZ = Math.max(13, game.speed * 1.2);
-  const z = landZ + game.speed * T;
-  // só cai onde há como reagir: nada por perto na hora do pouso
-  for (const o of props.live) if (o.z - game.speed * T > landZ - 8 && o.z - game.speed * T < landZ + 8) return null;
-  const o = props.add('log', X(lane), z);
-  o.falling = { t: 0, T, rx: rnd(-3, 3), rz: rnd(-4, 4) };
-  o.m.position.y = 15;
+/* ---------- o que cai do céu: mira no gnomo, trava e cai na cabeça ---------- */
+const FALL_T = 1.5; // do estalo até a pancada
+const FALL_LOCK = 0.48; // fração do tempo em que ainda segue o gnomo; depois é só sair de baixo
+function dropHazard(kind = 'log', T = FALL_T) {
+  if (game.fall || game.portalKind) return null;
+  // precisa haver para onde fugir: nada pesado chegando na hora da queda
+  for (const o of props.live) {
+    if (o.dead || o.type === 'mud') continue;
+    // só atrapalha o que bloqueia pista bem na hora da fuga; galho e portal se resolvem junto
+    const at = o.z / Math.max(game.speed, 1);
+    if (o.type === 'block' && at > T - 0.55 && at < T + 0.35) return null;
+  }
+  const o = props.add(kind, game.px, 0.4);
+  o.falling = { t: 0, T, z: 0.4, rx: rnd(-4, 4), rz: rnd(-4, 4), locked: false };
+  o.m.position.y = 10;
   game.fall = o;
   audio.crack();
-  ringMark.material.color.setRGB(4.2, 2.2, 0.4);
+  ringMark.material.color.setRGB(4.6, 2.3, 0.4);
   return o;
 }
-/** Devolve true enquanto o galho ainda está no ar. */
+/** Devolve true enquanto ainda está no ar. */
 function updateFalling(o, dt) {
   const f = o.falling;
   f.t += dt;
   const k = clamp(f.t / f.T);
-  o.m.position.y = 15 * (1 - k * k);
+  o.z = f.z; // cai onde o gnomo está: não anda junto com a estrada
+  if (k < FALL_LOCK) {
+    o.x = damp(o.x, game.px, 12, dt); // o alvo segue os pés
+  } else if (!f.locked) {
+    f.locked = true;
+    o.x = X(game.lane);
+    audio.screech();
+    buzz(22);
+    ringMark.material.color.setRGB(6, 0.7, 0.3);
+    if (!game.fallSeen) { game.fallSeen = true; showToast('Olha pra cima! Sai de baixo!', '#ffc64d'); }
+  }
+  o.m.position.set(o.x, 10 * (1 - k * k), o.z);
   o.m.rotation.x = f.rx * (1 - k);
   o.m.rotation.z = f.rz * (1 - k);
   ringMark.position.set(o.x, 0.07, o.z);
-  ringMark.material.opacity = 0.35 + k * 0.55;
-  ringMark.scale.setScalar(1.3 - k * 0.45);
-  if (Math.random() < dt * 22) burst.emit(o.x + rnd(-0.7, 0.7), o.m.position.y + 0.4, o.z, 1, { speed: 0.5, up: -0.2, color: '#79a83f', size: 0.1, life: 0.8, power: 0.8, grav: 2 });
+  ringMark.material.opacity = f.locked ? 0.6 + Math.sin(f.t * 30) * 0.35 : 0.5;
+  ringMark.scale.setScalar(f.locked ? 1 - (k - FALL_LOCK) * 0.5 : 1);
+  if (Math.random() < dt * 24) burst.emit(o.x + rnd(-0.6, 0.6), o.m.position.y + 0.4, o.z, 1, { speed: 0.5, up: -0.2, color: o.kind === 'rock' ? '#8d8a84' : '#79a83f', size: 0.1, life: 0.7, power: 0.8, grav: 2 });
   if (k < 1) return true;
   o.falling = null;
   o.m.rotation.set(0, 0, 0);
   o.m.position.y = 0;
   game.fall = null;
   ringMark.material.opacity = 0;
-  game.shake = Math.max(game.shake, 0.4);
-  audio.thud(0.7);
+  game.shake = Math.max(game.shake, 0.45);
+  audio.thud(0.8);
   burst.emit(o.x, 0.2, o.z, 24, { speed: 5, up: 0.8, color: '#a58a6a', size: 0.22, life: 0.7, power: 0.6, grav: 4 });
-  burst.emit(o.x, 0.5, o.z, 14, { speed: 4, up: 1.1, color: '#79a83f', size: 0.12, life: 0.9, power: 0.9, grav: 3 });
+  // já caiu: o que sobra no chão fica para trás, não bate de novo
+  o.dead = true;
+  if (Math.abs(game.px - o.x) < 0.85 && game.y < 1.6 && game.inv <= 0 && !game.god) {
+    props.launch(o, 1);
+    hurt();
+  }
   return false;
 }
 
-/* ---------- arremesso de pedregulho ---------- */
+/* ---------- arremesso do monstro: joga pedra, que cai em cima de você ---------- */
 function tryThrow() {
   if (birds.active() || game.birdCues.length || game.fall) return false;
-  const lane = [-1, 0, 1][rint(3)];
-  const T = 1.25;
-  const landZ = Math.max(13, game.speed * 1.15);
-  const zAtSpawn = landZ + game.speed * T;
-  // nunca jogar onde já criaria um beco sem saída
-  for (const o of props.live) {
-    const zl = o.z - game.speed * T;
-    if (Math.abs(zl - landZ) < 7) return false;
-  }
+  const o = dropHazard('rock');
+  if (!o) return false;
   monster.throw();
   audio.boulder();
-  setTimeout(() => audio.thud(0.2), 200);
-  game.boulder = { lane, x: X(lane), t: 0, T, z: zAtSpawn };
-  game.bMesh.visible = true;
   return true;
-}
-function updateBoulder(dt) {
-  const b = game.boulder;
-  if (!b) return;
-  b.t += dt;
-  b.z -= game.speed * dt;
-  const k = clamp(b.t / b.T);
-  const y0 = 7;
-  const y = lerp(y0, 0, k) + Math.sin(k * Math.PI) * 9;
-  const z = lerp(-7, b.z, k);
-  const x = lerp(game.mx, b.x, k);
-  game.bMesh.position.set(x, y, z);
-  game.bMesh.rotation.x += dt * 7;
-  game.bMesh.rotation.z += dt * 4;
-  ringMark.material.color.setRGB(5, 0.7, 0.35);
-  ringMark.position.set(b.x, 0.07, b.z);
-  ringMark.material.opacity = 0.45 + Math.sin(b.t * 22) * 0.35;
-  ringMark.scale.setScalar(1.25 - k * 0.3);
-  if (k >= 1) {
-    game.bMesh.visible = false;
-    ringMark.material.opacity = 0;
-    const o = props.add('rock', b.x, b.z);
-    o.m.rotation.y = Math.random() * 6;
-    game.shake = Math.max(game.shake, 0.55);
-    audio.thud(1);
-    burst.emit(b.x, 0.2, b.z, 34, { speed: 7, up: 0.9, color: '#b09a7e', size: 0.34, life: 0.9, power: 0.7, grav: 5 });
-    burst.emit(b.x, 0.3, b.z, 14, { speed: 8, up: 1.2, color: '#ff8a4a', size: 0.09, life: 0.6, power: 4, grav: 10 });
-    game.boulder = null;
-  }
 }
 
 /* ---------- virar o celular dentro do tronco ---------- */
@@ -1262,7 +1233,7 @@ function openPortal(kind) {
   for (let i = props.live.length - 1; i >= 0; i--) { const o = props.live[i]; if (o.z > -2) props.remove(i); }
   birds.hideAll();
   game.birdCues = [];
-  game.boulder = null; game.bMesh.visible = false; ringMark.material.opacity = 0; game.fall = null;
+  ringMark.material.opacity = 0; game.fall = null;
   game.nextRow = 400; // nada novo nasce antes de entrar
   game.birdCool = 999;
   game.evtT = 999;
@@ -1339,7 +1310,6 @@ function exitTube() {
     game.state = 'run';
     game.px = X(game.lane); game.mx = game.px;
     game.y = 0; game.vy = 0; game.grounded = true;
-    forgive();
     game.gap = Math.max(game.gap, 90); // o monstro ficou para trás
     game.inv = 1.6;
     game.nextRow = 22;
@@ -1373,6 +1343,7 @@ function spawnTubeRow(z) {
   for (let i = 0; i < 16; i++) tubeAcorn(Math.sin(i * 0.42) * THETA, z + i * 1.4);
   return 12;
 }
+const TUBE_HIT_COST = 6;
 function updateTube(dt) {
   const S = STAGE[game.tubeKind];
   game.tubeT += dt;
@@ -1415,6 +1386,16 @@ function updateTube(dt) {
       // aqui não há morte: só o tombo, a pancada e a velocidade que cai
       game.inv = 0.9;
       game.speed *= 0.72;
+      // aqui se vem colher: bater derruba bolotas, senão desviar não valeria nada
+      const lost = Math.min(TUBE_HIT_COST * S.mult, game.tubeAcorns);
+      if (lost > 0) {
+        game.tubeAcorns -= lost;
+        game.acorns -= lost;
+        ui.acorns.textContent = game.acorns;
+        showToast(`-${lost} bolotas`, '#ff8a7a');
+        Tube.at(game.theta, 0.6, tmp);
+        burst.emit(tmp.x, tmp.y, 0.2, 18, { speed: 5, up: 1, color: '#ffd76b', size: 0.13, life: 0.7, power: 2.6, grav: 8 });
+      }
       game.shake = 0.65;
       game.hitFx = 0.8;
       game.combo = 0;
@@ -1482,17 +1463,28 @@ const _white = new THREE.Color(2.6, 2.5, 2.1);
 
 /* ---------- pássaros ---------- */
 function featherBurst(b) {
+  if (b.kind === 'tatu') {
+    burst.emit(b.x, 0.4, b.z, 22, { speed: 5, up: 1, color: '#a9743c', size: 0.2, life: 0.8, power: 1, grav: 8 });
+    return;
+  }
   burst.emit(b.x, b.y + 0.1, b.z, 20, { speed: 5, up: 0.9, color: '#c77be0', size: 0.15, life: 0.9, power: 1.3, grav: 1.6, drag: 3 });
   burst.emit(b.x, b.y + 0.1, b.z, 10, { speed: 4, up: 0.9, color: '#21d6b0', size: 0.12, life: 0.8, power: 1.5, grav: 1.6, drag: 3 });
 }
-function launchFlock(T) {
+const randomFlyer = () => (Math.random() < 0.5 ? 'bird' : 'tatu');
+function launchOne(kind, x, T, lane) {
+  const b = birds.launch(x, kind === 'tatu' ? 46 : 62, T, game.speed, lane, kind);
+  // o tatu sai cavando: terra voando no ponto onde aparece
+  if (b && kind === 'tatu') burst.emit(x, 0.15, b.z, 26, { speed: 5, up: 1.1, color: '#8a6a44', size: 0.34, life: 0.8, power: 0.75, grav: 7 });
+  return b;
+}
+function launchFlock(T, kind = 'bird') {
   const diff = clamp(game.dist / 1100);
   const t = T ?? lerp(2.1, 1.6, diff);
-  const aim = birds.launch(game.px, 62, t, game.speed, game.lane);
+  const aim = launchOne(kind ?? randomFlyer(), game.px, t, game.lane);
   if (aim) aim.role = 'aim';
   // mais adiante vem um segundo: fecha mais uma pista, mas sempre sobra uma ao lado
   if (diff > 0.4) {
-    const wing = birds.launch(-game.px, 66, t, game.speed, 0);
+    const wing = launchOne(kind ?? randomFlyer(), -game.px, t, 0);
     if (wing) wing.role = 'wing';
   }
 }
@@ -1503,7 +1495,7 @@ function updateBirds(dt) {
     const c = game.birdCues[i];
     c.z -= game.speed * dt;
     const T = lerp(2.1, 1.6, diff);
-    if (c.z <= game.speed * T) { launchFlock(T); game.birdCues.splice(i, 1); }
+    if (c.z <= game.speed * T) { launchFlock(T, null); game.birdCues.splice(i, 1); }
   }
   birds.tex.offset.y += dt * 3.2;
   const pulse = 0.55 + Math.sin(G.uTime.value * 20) * 0.35;
@@ -1522,7 +1514,8 @@ function updateBirds(dt) {
           b.lane = game.lane;
           audio.screech();
           buzz(22);
-          if (!game.birdSeen) { game.birdSeen = true; showToast('Pássaro! Sai da frente!', '#ff8ad8'); }
+          if (b.kind === 'tatu' && !game.tatuSeen) { game.tatuSeen = true; showToast('Tatu! Desvia ou pula!', '#ffb45e'); }
+          if (b.kind === 'bird' && !game.birdSeen) { game.birdSeen = true; showToast('Pássaro! Sai da frente!', '#ff8ad8'); }
         } else {
           const lane = aimLane();
           b.lane = lane === 0 ? (Math.random() < 0.5 ? -1 : 1) : -lane;
@@ -1538,7 +1531,8 @@ function updateBirds(dt) {
     b.strip.material.opacity = b.locked && !b.passed ? pulse : 0;
 
     // cruzamento com o gnomo
-    if (!b.passed && Math.abs(b.z) < 0.7 && Math.abs(game.px - b.x) < 0.68 && game.y < 1.95) {
+    // o pássaro vem na altura da cabeça; por cima do tatu dá para pular
+    if (!b.passed && Math.abs(b.z) < 0.7 && Math.abs(game.px - b.x) < 0.68 && game.y < (b.kind === 'tatu' ? 0.62 : 1.95)) {
       if (game.inv <= 0 && !game.god) {
         featherBurst(b);
         audio.squawk();
@@ -1554,10 +1548,18 @@ function updateBirds(dt) {
       burst.emit(b.x, b.y, b.z, 6, { speed: 2.5, up: 0.5, color: '#c77be0', size: 0.11, life: 0.6, power: 1.1, grav: 1.5 });
     }
     // passou: arremete por cima da câmera
-    if (b.passed) b.y += dt * (6 + (-b.z) * 0.7);
-    const wob = b.locked ? 0 : Math.sin(b.t * 5 + b.wob) * 0.22;
-    b.group.position.set(b.x, b.y - 0.19 + wob, b.z);
-    b.group.rotation.z = (b.x - (b.px ?? b.x)) * -2.2;
+    if (b.kind === 'tatu') {
+      // emerge da terra, corre levantando poeira e, depois de passar, cava de volta
+      const up = clamp(b.t / 0.4);
+      const down = b.passed ? clamp((-b.z - 1.5) / 3) : 0;
+      b.group.position.set(b.x, (up - 1) * 1.1 - down * 1.1, b.z);
+      if (Math.random() < dt * 20) burst.emit(b.x, 0.1, b.z - 0.5, 1, { speed: 1, up: 0.5, color: '#a58a6a', size: 0.17, life: 0.5, power: 0.5, grav: 1.5, zv: game.speed * 0.4 });
+    } else {
+      if (b.passed) b.y += dt * (6 + (-b.z) * 0.7);
+      const wob = b.locked ? 0 : Math.sin(b.t * 5 + b.wob) * 0.22;
+      b.group.position.set(b.x, b.y - 0.19 + wob, b.z);
+      b.group.rotation.z = (b.x - (b.px ?? b.x)) * -2.2;
+    }
     b.px = b.x;
     birds.animate(b, dt);
     if (b.z < -18) birds.remove(b);
@@ -1565,7 +1567,7 @@ function updateBirds(dt) {
 }
 
 /* ---------- loop de jogo ---------- */
-function monsterDist() { return lerp(1.75, 7.6, clamp(game.gap / 100)); }
+function monsterDist() { return lerp(1.75, 8.95, clamp(game.gap / 100)); }
 
 function updateRun(dt) {
   game.runTime += dt;
@@ -1609,39 +1611,36 @@ function updateRun(dt) {
 
   // o monstro: a fuga limpa abre vantagem, mas a fera nunca desiste
   const diff = clamp(game.dist / 1600);
-  if (game.hits > 0) {
-    game.hitT -= dt;
-    if (game.hitT <= 0) { forgive(); showToast('Ufa! Recuperou o fôlego', '#8fdc6a'); }
-  }
-  game.gap = Math.min(game.hits > 0 ? WOUNDED_GAP + 6 : 100, game.gap + (3.8 - diff * 2.3) * dt);
+  // a vida volta aos poucos; ao passar da linha, o monstro já ficou para trás
+  const lifeBefore = game.gap;
+  game.gap = Math.min(100, game.gap + LIFE_REGEN * dt);
+  if (lifeBefore <= LIFE_SAFE && game.gap > LIFE_SAFE) showToast('Ufa! Ele ficou para trás', '#8fdc6a');
   game.stun = Math.max(0, game.stun - dt);
   game.lunge = Math.max(0, game.lunge - dt * 1.6);
-  game.mx = damp(game.mx, game.px, game.gap < 30 ? 3.8 : 2.4, dt);
+  game.mx = damp(game.mx, game.px, game.gap <= LIFE_SAFE ? 3.8 : 2.4, dt);
   // eventos
   game.evtT -= dt;
   if (game.evtT <= 0 && game.stun <= 0) {
-    if (game.dist > 120 && Math.random() < 0.55 + diff * 0.2 && !game.boulder && tryThrow()) game.evtT = rnd(6, 10) - diff * 2.5;
+    if (game.dist > 120 && Math.random() < 0.55 + diff * 0.2 && tryThrow()) game.evtT = rnd(6, 10) - diff * 2.5;
     else {
-      game.roar = 0.75; audio.roar(0.7);
-      game.shake = 0.5;
+      game.roar = 0.75; audio.roar(game.gap <= LIFE_SAFE ? 0.7 : 0.35);
+      game.shake = game.gap <= LIFE_SAFE ? 0.5 : 0.15;
       setTimeout(() => { game.roar = 0; }, 900);
       game.evtT = rnd(7, 11);
     }
   }
   // olhada para trás quando a fera está em cima
   game.lookT -= dt;
-  if (game.lookT < 0) { game.look = game.gap < 45 ? 1 : 0; game.lookT = game.look ? 0.5 : rnd(2, 4); game.lookSide = Math.random() < 0.5 ? 1 : -1; }
+  if (game.lookT < 0) { game.look = game.gap <= LIFE_SAFE ? 1 : 0; game.lookT = game.look ? 0.5 : rnd(2, 4); game.lookSide = Math.random() < 0.5 ? 1 : -1; }
 
   updateTrack(dt);
-  updateBoulder(dt);
   if (game.state === 'run') updateBirds(dt);
   game.fallT -= dt;
   // nextRow enorme significa pista parada (entrada do tronco ou teste): nada cai
   if (game.state === 'run' && game.fallT <= 0 && game.nextRow < 300) {
-    const mine = Math.random() < 0.65;
-    const lane = mine ? game.lane : [-1, 0, 1][rint(3)];
-    if (!birds.active() && !game.birdCues.length) dropBranch(lane);
-    game.fallT = rnd(3.5, 7.5) - clamp(game.dist / 1100) * 2;
+    const fell = !birds.active() && !game.birdCues.length && dropHazard(Math.random() < 0.72 ? 'log' : 'rock');
+    // sem brecha agora, tenta de novo logo em seguida
+    game.fallT = fell ? rnd(3, 6) - clamp(game.dist / 1100) * 1.5 : 0.5;
   }
   if (game.state === 'run') updateBonus(dt);
 
@@ -1658,7 +1657,7 @@ function updateRun(dt) {
   // HUD
   const pct = clamp(game.gap, 0, 100);
   ui.gap.style.width = `${pct}%`;
-  ui.gapBox.classList.toggle('alarm', game.gap < 34);
+  ui.gapBox.classList.toggle('alarm', game.gap <= LIFE_SAFE);
   ui.ring.style.strokeDashoffset = 283 * (1 - game.charge);
   ui.flash.classList.toggle('ready', game.charge >= 1);
 }
@@ -1782,7 +1781,7 @@ function frame(now) {
   G.uBend.value.set(game.bendX, game.bendY);
 
   /* gnomo */
-  const fear = clamp(1 - game.gap / 45);
+  const fear = clamp((LIFE_SAFE - game.gap) / 30);
   let gState = 'idle';
   if (game.state === 'intro') gState = game.scared ? 'scared' : 'run';
   else if (running) gState = !game.grounded ? 'jump' : game.sliding > 0 ? 'slide' : 'run';
@@ -1826,14 +1825,14 @@ function frame(now) {
     mg.rotation.y = 0;
     monster.update(dt, { running: 0, speed: 0, roar: 0, lightPower: 3, headYaw: Math.sin(G.uTime.value * 0.5) * 0.35 });
   } else if (game.state === 'intro') {
-    mg.position.set(game.mx, 0, lerp(-11, -7.6, game.introMon || 0));
+    mg.position.set(game.mx, 0, lerp(-11, -9.4, game.introMon || 0));
     monster.update(dt, { running: game.camK, speed: 8, roar: game.roar, lightPower: 9 });
   } else if (running) {
     const d = monsterDist();
     mg.position.set(game.mx, 0, -d - 1.4);
     mg.rotation.y = clamp((game.px - game.mx) * 0.2, -0.4, 0.4);
     monster.update(dt, {
-      running: 1, speed: game.speed, roar: game.roar, stun: game.stun > 0 ? 1 : 0, lunge: Math.max(game.lunge, game.gap < 25 ? 0.5 + Math.sin(G.uTime.value * 3) * 0.4 : 0),
+      running: 1, speed: game.speed, roar: game.roar, stun: game.stun > 0 ? 1 : 0, lunge: Math.max(game.lunge, game.gap <= 45 ? 0.5 + Math.sin(G.uTime.value * 3) * 0.4 : 0),
       tilt: (game.px - game.mx) * -0.08, headYaw: (game.px - game.mx) * 0.25, lightPower: 6 + fear * 14,
     });
   } else {
@@ -1883,11 +1882,11 @@ function frame(now) {
   /* pós */
   game.hitFx = Math.max(0, game.hitFx - dt * 2.6);
   const u = post.grade.uniforms;
-  u.get('uDanger').value = running ? clamp(1 - game.gap / 38) : game.state === 'caught' ? 0.9 : 0;
+  u.get('uDanger').value = running ? clamp((LIFE_SAFE + 2 - game.gap) / 34) * 0.8 : game.state === 'caught' ? 0.9 : 0;
   u.get('uFlashG').value = game.flashFx;
   u.get('uHit').value = game.hitFx * 0.7;
   u.get('uT').value = G.uTime.value;
-  audio.setFear(running ? clamp(1 - game.gap / 60) : game.state === 'title' || game.state === 'shop' ? 0.12 : 0.3);
+  audio.setFear(running ? clamp((LIFE_SAFE + 5 - game.gap) / 40) : game.state === 'title' || game.state === 'shop' ? 0.12 : 0.3);
 
   /* sombra em frames alternados no celular: economia real sem perda visível */
   frameN++;

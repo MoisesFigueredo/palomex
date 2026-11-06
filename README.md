@@ -14,15 +14,15 @@ Jogue em https://palomex.vercel.app
 | Clarão da lanterna | Espaço | Botão Clarão |
 | Pausar / som | P / M | Botões no canto da tela |
 
-Galho e obstáculo âmbar pedem pulo, e galhos também despencam das árvores, com aviso no chão. O cipó com espinhos balança entre as pistas. A lama roxa não derruba, mas atrasa e aproxima o monstro. Obstáculo azul pede deslize, pedra e espinho pedem desvio. Pássaro vem de frente, marca a pista no chão e obriga a trocar de pista. Deslizar para fora da pista, já estando na beirada, dá um dano pequeno.
+Galho e obstáculo âmbar pedem pulo, O cipó com espinhos balança entre as pistas. A lama roxa não derruba, mas atrasa e aproxima o monstro. Obstáculo azul pede deslize, pedra e espinho pedem desvio. Pássaro e tatu vêm de frente e marcam a pista no chão; do tatu também dá para pular. O que cai do céu mira nos pés do gnomo, trava e cai na cabeça de quem não sair de baixo. Deslizar para fora da pista, já estando na beirada, dá um dano pequeno.
 
 ## Vida
 
-Dois tapas matam, seja de obstáculo ou de pássaro. O primeiro põe o monstro colado no gnomo. Passar 20 segundos sem apanhar, usar o Clarão ou sair do tronco perdoa.
+A vida vai até 100 e volta sozinha, 2,5 por segundo. Cada tapa tira 60, então com 60 ou menos o próximo mata; a marca na barra mostra essa linha. O monstro fica na tela enquanto a vida está abaixo dela, uns 10 segundos depois do tapa. O Clarão recupera 40.
 
 ## Fase extra
 
-A folha de cannabis e o cogumelo mágico são raros na pista. Ao pegar um, surge o tronco velho gigante na estrada e o gnomo desce o tobogã por dentro. A folha faz uma descida lenta e cheia de bolota; o cogumelo, uma descida rápida e colorida com bolota em dobro. Lá dentro só há nós de desviar: no celular, basta virar o aparelho para os lados (ou deslizar o dedo). Não se morre lá dentro, e na saída o monstro ficou para trás.
+A folha de cannabis e o cogumelo mágico são raros na pista. Ao pegar um, surge o tronco velho gigante na estrada e o gnomo desce o tobogã por dentro. A folha faz uma descida lenta e cheia de bolota; o cogumelo, uma descida rápida e colorida com bolota em dobro. Lá dentro só há nós de desviar: no celular, basta virar o aparelho para os lados (ou deslizar o dedo). Não se morre lá dentro, mas bater derruba bolotas, e na saída o monstro ficou para trás.
 
 ## Loja
 

@@ -24,6 +24,11 @@ await p.evaluate((g) => {
   setInterval(() => {
     const s = G.game;
     if (s.state !== 'run') return;
+    if (s.fall && s.fall.falling?.locked && Math.abs(s.px - s.fall.x) < 1) {
+      const lanes = [-1, 0, 1].filter((l) => Math.abs(l - s.lane) === 1);
+      G.input(lanes[0] < s.lane ? 'left' : 'right');
+      return;
+    }
     const bird = G.birds.list.find((x) => x.on && x.locked && !x.passed && x.lane === s.lane && x.z < x.closing * 0.55);
     if (bird) {
       const lanes = [-1, 0, 1].filter((l) => Math.abs(l - s.lane) === 1 && !G.birds.list.some((x) => x.on && x.locked && !x.passed && x.lane === l));

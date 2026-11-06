@@ -58,7 +58,7 @@ await p.evaluate(() => { const g = window.__g.game; g.evtT = 0; g.dist = 300; })
 let seen = false;
 for (let i = 0; i < 120 && !seen; i++) {
   await p.waitForTimeout(100);
-  seen = await p.evaluate(() => { const g = window.__g.game; if (!g.boulder) g.evtT = 0; return !!g.boulder && g.boulder.t > 0.55; });
+  seen = await p.evaluate(() => { const g = window.__g.game; if (!g.fall) g.evtT = 0; return !!g.fall && g.fall.kind === 'rock'; });
 }
 console.log('pedregulho visto', seen);
 if (seen) await shot('boulder');

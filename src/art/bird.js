@@ -58,6 +58,43 @@ function paint(x, y, z, c) {
   if (c.b > c.g && y > 0.98 && z < 0.2 && Math.sin(z * 26 + Math.sin(x * 11) * 1.6) > 0.25) c.multiplyScalar(0.48);
 }
 
+/* ---------- tatuzinho: sai da terra e corre contra o jogador ---------- */
+const TC = { shell: '#a9743c', band: '#6e4520', belly: '#e6c49a', skin: '#c98f64', claw: '#2a1a10' };
+const tatuBones = {
+  root: { p: [0, 0, 0] },
+  body: { p: [0, 0.36, 0], parent: 'root' },
+  head: { p: [0, 0.33, 0.44], parent: 'body' },
+  tail: { p: [0, 0.3, -0.46], parent: 'body' },
+  legFL: { p: [0.2, 0.2, 0.26], parent: 'body' },
+  legFR: { p: [-0.2, 0.2, 0.26], parent: 'body' },
+  legBL: { p: [0.2, 0.2, -0.24], parent: 'body' },
+  legBR: { p: [-0.2, 0.2, -0.24], parent: 'body' },
+};
+function tatuPrims() {
+  const o = [];
+  o.push(ell([0, 0.37, -0.02], [0.3, 0.27, 0.5], 'body', TC.shell, { k: 0.04 }));
+  o.push(ell([0, 0.24, 0.02], [0.23, 0.13, 0.4], 'body', TC.belly, { k: 0.05, colorSharp: 40 }));
+  // cabeça pontuda, orelhas grandes
+  o.push(cap([0, 0.36, 0.4], [0, 0.27, 0.72], 0.14, 0.05, 'head', TC.skin, { k: 0.05, skinSharp: 40 }));
+  for (const s of [1, -1]) {
+    o.push(ell([s * 0.11, 0.5, 0.42], [0.05, 0.1, 0.03], 'head', TC.skin, { k: 0.015, rot: [0, 0, s * -0.3], colorSharp: 120 }));
+    for (const [l, z] of [['F', 0.26], ['B', -0.24]]) {
+      o.push(cap([s * 0.2, 0.2, z], [s * 0.22, 0.05, z + 0.03], 0.055, 0.04, 'leg' + l + (s > 0 ? 'L' : 'R'), TC.skin, { k: 0.02, skinSharp: 120 }));
+      o.push(cap([s * 0.22, 0.04, z + 0.03], [s * 0.23, 0.02, z + 0.12], 0.035, 0.014, 'leg' + l + (s > 0 ? 'L' : 'R'), TC.claw, { k: 0.01, skinSharp: 200, colorSharp: 200 }));
+    }
+  }
+  o.push(cap([0, 0.32, -0.48], [0, 0.17, -0.82], 0.07, 0.015, 'tail', TC.band, { k: 0.03, skinSharp: 90 }));
+  return o;
+}
+function tatuPaint(x, y, z, c) {
+  // cintas da carapaça: é o que faz ser tatu, visto de cima e de longe
+  if (y > 0.27 && c.r > c.b * 1.5 && z < 0.34 && z > -0.46) {
+    const band = Math.sin(z * 34) > 0.15;
+    c.set(band ? TC.shell : TC.band);
+    if ((Math.sin(x * 40) * Math.sin(z * 34 + 1.2)) > 0.72) c.multiplyScalar(1.25);
+  }
+}
+
 /** Textura de divisas correndo pela pista: avisa de onde vem o golpe. */
 function chevronTexture() {
   const c = document.createElement('canvas');
@@ -128,18 +165,71 @@ export class Birds {
       strip.position.set(0, 0.06, 17);
       scene.add(strip);
 
-      this.list.push({ group, B, eyes, strip, on: false, x: 0, y: 1, z: 60, phase: rnd(6.28), locked: false, passed: false, lane: 0, t: 0, T: 2, own: 0, wob: rnd(6.28) });
+      this.list.push({ kind: 'bird', group, B, eyes, strip, on: false, x: 0, y: 1, z: 60, phase: rnd(6.28), locked: false, passed: false, lane: 0, t: 0, T: 2, own: 0, wob: rnd(6.28) });
     }
+    await this.buildTatus(q, scene);
+  }
+
+  async buildTatus(q, scene) {
+    const geo = await sculpt(tatuPrims(), tatuBones, { cell: q.tatuCell, colorSharp: 80, skinSharp: 40, paint: tatuPaint, reach: 0.1 });
+    const mat = patch(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.55 }), { glow: true, glowSelf: true, glowAmp: 1, rim: 1.2 });
+    const depth = depthFor({});
+    const eyeM = patch(new THREE.MeshBasicMaterial({ color: new THREE.Color(5.5, 0.9, 0.3) }), { rim: 0 });
+    const eyeG = new THREE.SphereGeometry(0.036, 8, 7);
+    for (let i = 0; i < 3; i++) {
+      const { bones: B, list, root } = buildSkeleton(tatuBones);
+      const mesh = new THREE.SkinnedMesh(geo, mat);
+      mesh.castShadow = true;
+      mesh.frustumCulled = false;
+      mesh.customDepthMaterial = depth;
+      mesh.add(root);
+      mesh.updateMatrixWorld(true);
+      mesh.bind(new THREE.Skeleton(list), mesh.matrixWorld);
+      for (const s of [1, -1]) {
+        const e = new THREE.Mesh(eyeG, eyeM);
+        e.position.set(s * 0.085, 0.43 - tatuBones.head.p[1], 0.55 - tatuBones.head.p[2]);
+        B.head.add(e);
+      }
+      const group = new THREE.Group();
+      group.add(mesh);
+      group.rotation.y = Math.PI;
+      group.scale.setScalar(1.3);
+      group.position.set(0, -50, 0);
+      scene.add(group);
+      const strip = new THREE.Mesh(
+        new THREE.PlaneGeometry(1.3, 34).rotateX(-Math.PI / 2),
+        patch(new THREE.MeshBasicMaterial({ color: new THREE.Color(4.6, 1.7, 0.35), map: this.tex, alphaMap: this.tex, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending }), { rim: 0 }),
+      );
+      strip.frustumCulled = false;
+      strip.renderOrder = 2;
+      strip.position.set(0, 0.06, 17);
+      scene.add(strip);
+      this.list.push({ kind: 'tatu', group, B, eyes: [], strip, on: false, x: 0, y: 0, z: 40, phase: rnd(6.28), locked: false, passed: false, lane: 0, t: 0, T: 2, own: 0, wob: rnd(6.28) });
+    }
+  }
+
+  animateTatu(b, dt) {
+    const B = b.B;
+    b.phase += dt * 24;
+    const f = b.phase;
+    const lift = (o) => Math.sin(f + o) * 0.75;
+    B.legFL.rotation.x = lift(0); B.legBR.rotation.x = lift(0.3);
+    B.legFR.rotation.x = lift(Math.PI); B.legBL.rotation.x = lift(Math.PI + 0.3);
+    B.body.position.y = tatuBones.body.p[1] + Math.abs(Math.sin(f)) * 0.05;
+    B.body.rotation.set(Math.sin(f * 2) * 0.05, 0, Math.sin(f) * 0.07);
+    // focinho para cima: a câmera vê a cara e as orelhas
+    B.head.rotation.set(-0.5 + Math.sin(f * 0.5) * 0.12, Math.sin(f * 0.27) * 0.2, 0);
+    B.tail.rotation.y = Math.sin(f) * 0.45;
   }
 
   hideAll() { this.list.forEach((b) => { b.group.visible = false; b.strip.visible = false; b.on = false; }); }
   active() { return this.list.some((b) => b.on); }
-  free() { return this.list.find((b) => !b.on); }
+  free(kind = 'bird') { return this.list.find((b) => !b.on && b.kind === kind); }
 
-  launch(x, z, T, speed, lane) {
-    const b = this.free();
+  launch(x, z, T, speed, lane, kind = 'bird') {
+    const b = this.free(kind);
     if (!b) return null;
-    Object.assign(b, { on: true, x, y: 1.0, z, t: 0, T, locked: false, passed: false, lane, closing: z / T, role: 'aim' });
+    Object.assign(b, { on: true, x, y: kind === 'tatu' ? 0 : 1.0, z, t: 0, T, locked: false, passed: false, lane, closing: z / T, role: 'aim' });
     b.group.visible = true;
     b.strip.visible = true;
     b.strip.material.opacity = 0;
@@ -151,6 +241,7 @@ export class Birds {
 
   /** Pose: bate as asas sem ritmo, balança a cabeça e cada olho vai para um lado. */
   animate(b, dt) {
+    if (b.kind === 'tatu') { this.animateTatu(b, dt); return; }
     const B = b.B;
     b.phase += dt * (15 + Math.sin(b.t * 3.7 + b.wob) * 5);
     const f = b.phase, t = b.t + b.wob;
