@@ -30,18 +30,6 @@
     <div id="toast"></div>
   </div>
 
-  <!-- controles de toque: multitoque, área grande e resposta no pressionar -->
-  <div id="pad" hidden>
-    <div class="cluster left">
-      <button class="pbtn" data-a="left" aria-label="Esquerda"><svg viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="3.200" stroke-linecap="round" stroke-linejoin="round" d="M15 5l-7 7 7 7"/></svg></button>
-      <button class="pbtn" data-a="right" aria-label="Direita"><svg viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="3.200" stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></button>
-    </div>
-    <div class="cluster right">
-      <button class="pbtn alt" data-a="down" aria-label="Deslizar"><svg viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="3.200" stroke-linecap="round" stroke-linejoin="round" d="M5 9l7 7 7-7"/></svg><span>desliza</span></button>
-      <button class="pbtn go" data-a="up" aria-label="Pular"><svg viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="3.200" stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7"/></svg><span>pula</span></button>
-    </div>
-  </div>
-
   <button id="btnFlash" hidden aria-label="Clarão da lanterna">
     <svg class="ring" viewBox="0 0 100 100"><circle cx="50" cy="50" r="45" class="tr"/><circle id="flashRing" cx="50" cy="50" r="45" class="fl"/></svg>
     <svg class="lamp" viewBox="0 0 24 24"><path fill="currentColor" d="M9 2h6v2h1.500v2H7.500V4H9zM8 7h8l1 9H7zm-2 10h12v2.500H6z"/></svg>
@@ -54,14 +42,22 @@
       <p>O Cramunhão do brejo acordou com fome. Tonho só tem uma lanterna e duas perninhas.</p>
     </div>
     <div class="foot">
-      <button id="btnStart" class="cta">Correr</button>
+      <div class="row">
+        <button id="btnStart" class="cta">Correr</button>
+        <button id="btnShop" class="cta ghost">Acessórios</button>
+        <button id="btnRank" class="cta ghost">Ranking</button>
+      </div>
+      <p class="wallet"><b id="walletTitle">0</b> bolotas guardadas</p>
       <dl class="legend">
-        <div><dt class="amber"></dt><dd>Âmbar: pule</dd></div>
+        <div><dt class="amber"></dt><dd>Âmbar: pule o galho</dd></div>
         <div><dt class="blue"></dt><dd>Azul: deslize</dd></div>
         <div><dt class="red"></dt><dd>Pedra e espinho: desvie</dd></div>
+        <div><dt class="pink"></dt><dd>Pássaro: saia da pista</dd></div>
+        <div><dt class="violet"></dt><dd>Lama: atrasa</dd></div>
+        <div><dt class="green"></dt><dd>Folha e cogumelo: fase extra</dd></div>
       </dl>
       <p class="keys desk">Setas ou WASD para mover. Espaço solta o clarão.</p>
-      <p class="keys touch">Use os botões ou deslize o dedo na tela.</p>
+      <p class="keys touch">Deslize o dedo na tela para mover, pular e abaixar.</p>
       <p id="bestTitle" class="best" hidden></p>
     </div>
   </section>
@@ -80,8 +76,54 @@
       <div><b id="oAc">0</b><span>bolotas</span></div>
       <div><b id="oBest">0</b><span>recorde</span></div>
     </div>
-    <button id="btnAgain" class="cta">Correr de novo</button>
+    <p id="oEarned" class="earned"></p>
+    <p id="oRank" class="earned world" hidden></p>
+    <form id="overName" class="name-form" hidden>
+      <label for="overNameInput">Seu nome no ranking mundial</label>
+      <div class="row">
+        <input id="overNameInput" maxlength="14" autocomplete="nickname" enterkeyhint="done" placeholder="Seu nome">
+        <button type="submit" class="cta small">Salvar</button>
+      </div>
+      <p class="form-msg" role="status"></p>
+    </form>
+    <div class="row">
+      <button id="btnAgain" class="cta">Correr de novo</button>
+      <button id="btnMenu" class="cta ghost">Menu</button>
+      <button id="btnOverRank" class="cta ghost">Ranking</button>
+    </div>
   </section>
+
+  <section id="shop" hidden>
+    <header>
+      <div>
+        <h2>Acessórios</h2>
+        <p class="wallet"><b id="walletShop">0</b> bolotas guardadas</p>
+      </div>
+      <button id="btnShopBack" class="cta ghost small">Voltar</button>
+    </header>
+    <div id="shopList" class="scroll"></div>
+  </section>
+
+  <section id="rank" hidden>
+    <header>
+      <div>
+        <h2>Ranking mundial</h2>
+        <p class="wallet" id="rankInfo">Carregando</p>
+      </div>
+      <button id="btnRankBack" class="cta ghost small">Voltar</button>
+    </header>
+    <div id="rankList" class="scroll"></div>
+    <form id="rankName" class="name-form">
+      <label for="rankNameInput">Seu nome</label>
+      <div class="row">
+        <input id="rankNameInput" maxlength="14" autocomplete="nickname" enterkeyhint="done" placeholder="Seu nome">
+        <button type="submit" class="cta small">Salvar</button>
+      </div>
+      <p class="form-msg" role="status"></p>
+    </form>
+  </section>
+
+  <div id="fade"></div>
 
   <div id="loader">
     <div class="load-in">

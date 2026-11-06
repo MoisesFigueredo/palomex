@@ -167,6 +167,7 @@ export class Gnome {
         sm.frustumCulled = false;
         sm.bind(skel, this.mesh.matrixWorld);
         this.mesh.add(sm);
+        (this.shellMats ||= []).push(m);
       }
     }
 
@@ -212,7 +213,7 @@ export class Gnome {
     // lanterna na mão direita, com luz de verdade
     this.lantern = new THREE.Group();
     const lg = buildLantern();
-    this.lanternMesh = new THREE.Mesh(lg, patch(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.5, metalness: 0.3 }), { glow: true, glowAmp: 3.2, rim: 0.2, glowColor: new THREE.Color('#ffb765') }));
+    this.lanternMesh = new THREE.Mesh(lg, patch(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.5, metalness: 0.3 }), { glow: true, glowAmp: 3.2, rim: 0.2, glowColor: (this.flameColor = new THREE.Color('#ffb765')) }));
     this.lanternMesh.castShadow = false;
     this.lantern.add(this.lanternMesh);
     this.lantern.position.set(-0.02, -0.19, 0.01);
@@ -243,6 +244,20 @@ export class Gnome {
     this.onStep = null;
     this.flicker = 1;
     this.flashBoost = 0;
+  }
+
+  /** Troca a cor da chama: luz real, halo e brilho do miolo. */
+  setFlame(c) {
+    this.flameColor.set(c);
+    this.light.color.set(c);
+    this.halo.material.color.set(c);
+  }
+
+  /** Pisca só o corpo. Nunca esconder a malha inteira: a luz da lanterna é filha dela e
+   *  sumir com uma luz obriga a recompilar todos os shaders (engasgo visível). */
+  setBlink(on) {
+    this.mesh.material.visible = on;
+    (this.shellMats || []).forEach((m) => { m.visible = on; });
   }
 
   /** eventos vindos do jogo */

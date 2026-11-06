@@ -14,19 +14,19 @@ const ORDER = ['ultra', 'high', 'mid', 'low'];
 /** Conteúdo gerado: fixado no carregamento, pelo aparelho. */
 export function contentFor(mobile, weak) {
   const base = {
-    gnomeCell: 0.0135, monsterCell: 0.055, gnomeShells: 7, monsterShells: 12,
+    tubeRadial: 40, tubeLen: 90, birdCell: 0.02, gnomeCell: 0.0135, monsterCell: 0.055, gnomeShells: 7, monsterShells: 12,
     cards: 34, trees: 76, dead: 10, grass: 9000, ferns: 900, shrooms: 120, crystals: 26, rocks: 90, pebbles: 620,
     shafts: 18, mist: 0.34, shaftAmp: 0.085, fireflies: 420, leaves: 120, particles: 500,
     groundDZ: 1, groundSX: 90,
   };
   if (mobile) Object.assign(base, {
-    gnomeCell: 0.018, monsterCell: 0.075, gnomeShells: 3, monsterShells: 5,
+    tubeRadial: 28, tubeLen: 60, birdCell: 0.028, gnomeCell: 0.018, monsterCell: 0.075, gnomeShells: 3, monsterShells: 5,
     cards: 16, trees: 50, dead: 6, grass: 2600, ferns: 260, shrooms: 60, crystals: 12, rocks: 40, pebbles: 260,
     shafts: 10, fireflies: 140, leaves: 50, particles: 220,
     groundDZ: 1.6, groundSX: 44,
   });
   if (weak) Object.assign(base, {
-    gnomeCell: 0.021, monsterCell: 0.09, gnomeShells: 0, monsterShells: 3,
+    birdCell: 0.034, gnomeCell: 0.021, monsterCell: 0.09, gnomeShells: 0, monsterShells: 3,
     cards: 11, trees: 38, grass: 1200, ferns: 120, shrooms: 50, rocks: 24, pebbles: 150, shafts: 6, fireflies: 70, leaves: 24, particles: 140,
     groundDZ: 2.2, groundSX: 30,
   });

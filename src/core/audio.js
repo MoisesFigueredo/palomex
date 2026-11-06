@@ -171,6 +171,11 @@ export class Audio {
     // ostinato de corda dedilhada
     const ost = [0, 7, 12, 15, 12, 7, 10, 7];
     this.tone('sawtooth', midi(root + 24 + ost[n % 8]), t, 0.11, 0.05, m, { lp: 1400 + this.intensity * 1500, rev: 0.25 });
+    // fase extra: arpejo de descida por cima de tudo
+    if (this.stage) {
+      const up = [0, 7, 12, 15, 19, 24, 19, 15];
+      this.tone(this.stage === 'cogumelo' ? 'square' : 'triangle', midi(root + 36 + up[n % 8]), t, 0.14, this.stage === 'cogumelo' ? 0.035 : 0.06, m, { rev: 0.9, lp: 3600 });
+    }
     // melodia de ocarina em frases, entra quando esquenta
     const mel = [12, -1, 15, 17, 19, -1, 17, 15, 12, -1, 10, 12, 7, -1, -1, -1];
     const me = mel[n % 16];
@@ -258,6 +263,48 @@ export class Audio {
     this.tone('sine', 320, t, 0.22, 0.4, undefined, { to: 80 });
     this.noise(t + 0.24, 0.5, 0.15, { type: 'lowpass', f: 300, a: 0.1 });
     this.tone('sawtooth', 70, t + 0.75, 0.5, 0.2, undefined, { to: 44, lp: 400 }); // arroto
+  }
+  screech() {
+    if (!this.ctx) return;
+    const t = this.now();
+    this.tone('sawtooth', 1500, t, 0.32, 0.13, undefined, { to: 620, glide: 0.3, lp: 3800, rev: 0.6 });
+    this.tone('square', 2150, t + 0.02, 0.24, 0.05, undefined, { to: 880, glide: 0.22, lp: 4200 });
+    this.noise(t, 0.28, 0.07, { f: 2800, to: 1200, q: 3 });
+  }
+  squawk() {
+    if (!this.ctx) return;
+    const t = this.now();
+    [0, 0.07, 0.14].forEach((d, i) => this.tone('sawtooth', 980 - i * 170, t + d, 0.06, 0.13, undefined, { to: 460, lp: 3000 }));
+    this.noise(t, 0.2, 0.16, { f: 3600, q: 0.8 });
+  }
+  bonk() {
+    if (!this.ctx) return;
+    const t = this.now();
+    this.tone('square', 240, t, 0.1, 0.09, undefined, { to: 110, lp: 1200 });
+    this.tone('square', 620, t + 0.02, 0.09, 0.045, undefined, { to: 400, lp: 2200 }); // "ui!" do gnomo
+  }
+  crack() {
+    if (!this.ctx) return;
+    const t = this.now();
+    [0, 0.05, 0.13, 0.2, 0.34].forEach((d, i) => this.noise(t + d, 0.04, 0.17 - i * 0.02, { f: 2600 - i * 250, q: 3 }));
+    this.noise(t + 0.3, 0.7, 0.07, { f: 1200, to: 300, q: 0.8, a: 0.2 }); // folhas descendo
+  }
+  splat() {
+    if (!this.ctx) return;
+    const t = this.now();
+    this.noise(t, 0.3, 0.26, { type: 'lowpass', f: 1000, to: 240 });
+    this.tone('sine', 190, t, 0.2, 0.16, undefined, { to: 70 });
+  }
+  portal() {
+    if (!this.ctx) return;
+    const t = this.now();
+    this.noise(t, 1.1, 0.26, { f: 260, to: 2600, q: 1.2, a: 0.4, rev: 0.9 });
+    this.tone('sine', 95, t, 1.1, 0.36, undefined, { to: 340, a: 0.25 });
+  }
+  pickup() {
+    if (!this.ctx) return;
+    const t = this.now();
+    [69, 72, 76, 81, 84, 88].forEach((n, i) => this.tone('triangle', midi(n), t + i * 0.05, 0.4, 0.13, undefined, { rev: 0.9 }));
   }
   boulder() { if (!this.ctx) return; const t = this.now(); this.noise(t, 1.0, 0.13, { f: 300, to: 1200, q: 1.5, a: 0.4 }); }
 }

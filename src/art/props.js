@@ -11,6 +11,7 @@ const merge = (parts) => mergeGeometries(parts.map((p) => {
 }), false);
 
 const AMBER = '#ffb347', BLUE = '#62d6ff', RED = '#ff4a5e';
+export const VINE_LEN = 8.2;
 
 function fungi(x, y, z, s, color) {
   const cap = new THREE.SphereGeometry(0.12 * s, 10, 6, 0, 6.283, 0, 1.6).scale(1, 0.7, 1).translate(x, y + 0.07 * s, z);
@@ -27,31 +28,87 @@ function bark(g, seed = 0) {
   });
 }
 
-function makeLog(len) {
+/** Galho caído: torto, com forquilhas e folhas. O âmbar segue dizendo "pule". */
+function makeBranch(len) {
   const parts = [];
-  const body = new THREE.CylinderGeometry(0.36, 0.4, len, 14, Math.ceil(len * 3)).rotateZ(Math.PI / 2);
+  const r = rng(Math.round(len * 100));
+  const body = new THREE.CylinderGeometry(0.15, 0.24, len, 11, Math.ceil(len * 4)).rotateZ(Math.PI / 2);
   const p = body.attributes.position;
+  const ph = r() * 9;
   for (let i = 0; i < p.count; i++) {
     const x = p.getX(i), y = p.getY(i), z = p.getZ(i);
-    const a = Math.atan2(y, z);
-    const d = 1 + Math.cos(a * 9 + x) * 0.05 + (noise3(x * 0.9, y * 2, z * 2) - 0.5) * 0.28;
-    p.setXYZ(i, x, y * d, z * d);
+    const k = x / len + 0.5;
+    const thick = 1 - Math.abs(k - 0.5) * 0.55 + (noise3(x * 1.6, 2, ph) - 0.5) * 0.55;
+    p.setXYZ(i, x, y * thick + Math.sin(x * 1.5 + ph) * 0.07, z * thick + Math.sin(x * 0.9 + ph) * 0.12);
   }
   body.computeVertexNormals();
-  bark(body).translate(0, 0.36, 0);
+  bark(body).translate(0, 0.28, 0);
   parts.push(body);
-  for (const s of [1, -1]) {
-    const ring = new THREE.CircleGeometry(0.37, 14).rotateY(s * Math.PI / 2).translate(s * (len / 2 + 0.01), 0.36, 0);
-    paintGeo(ring, (c, x, y, z) => {
-      const r = Math.hypot(y - 0.36, z);
-      c.set(Math.sin(r * 48) > 0 ? '#c7a26d' : '#8d6a42');
-      return 0;
-    });
-    parts.push(ring);
+  const n = Math.ceil(len * 2.4);
+  for (let i = 0; i < n; i++) {
+    const x = (i / (n - 1) - 0.5) * (len - 0.2) + (r() - 0.5) * 0.15;
+    const a = r() * 6.283;
+    const up = 0.35 + r() * 0.25;
+    const twig = new THREE.CylinderGeometry(0.018, 0.055, up + 0.12, 6, 2);
+    twig.translate(0, (up + 0.12) / 2, 0).rotateZ((r() - 0.5) * 1.5).rotateX(Math.cos(a) * 0.8);
+    twig.translate(x, 0.3, Math.sin(a) * 0.06);
+    parts.push(bark(twig, i));
+    if (i % 2 === 0) {
+      const leaf = lump(blob(0.13 + r() * 0.07, 1), 0.14, 3);
+      leaf.scale(1.3, 0.75, 1.1);
+      leaf.translate(x + (r() - 0.5) * 0.25, 0.46 + r() * 0.2, Math.sin(a) * 0.22);
+      parts.push(paintGeo(leaf, (c, lx, ly) => { c.set('#2e6a2a').lerp(new THREE.Color('#79a83f'), clamp((ly - 0.4) * 3.2)); return 0.03; }));
+    } else {
+      parts.push(...fungi(x, 0.46, (r() - 0.5) * 0.14, 0.75 + r() * 0.6, AMBER));
+    }
   }
-  const r = rng(Math.round(len * 100));
-  const n = Math.ceil(len * 3);
-  for (let i = 0; i < n; i++) parts.push(...fungi((r() - 0.5) * (len - 0.3), 0.7, (r() - 0.5) * 0.3, 0.9 + r() * 0.8, AMBER));
+  return merge(parts);
+}
+
+/** Cipó que balança de um lado a outro, com a cabaça de espinhos na ponta. Origem no alto. */
+function makeVine() {
+  const parts = [];
+  const L = VINE_LEN;
+  const rope = new THREE.CylinderGeometry(0.035, 0.05, L, 7, 10).translate(0, -L / 2, 0);
+  paintGeo(rope, (c, x, y) => { c.set('#3f6d38').lerp(new THREE.Color('#79a83f'), Math.abs(Math.sin(y * 5))); return 0.02; });
+  parts.push(rope);
+  const pod = lump(blob(0.46, 2), 0.2, 2.2, 1, 1.25, 1);
+  paintGeo(pod, (c, x, y, z) => { c.set('#2a1420').lerp(new THREE.Color('#51222f'), fbm3(x * 4, y * 4, z * 4)); return 0; });
+  pod.translate(0, -L, 0);
+  parts.push(pod);
+  const r = rng(21);
+  for (let i = 0; i < 16; i++) {
+    const a = r() * 6.283, b = (r() - 0.5) * 2.5, h = 0.26 + r() * 0.2;
+    const cone = new THREE.ConeGeometry(0.06, h, 6, 2);
+    const hh = h;
+    paintGeo(cone, (c, px, py) => { const t = clamp((py + hh / 2) / hh); c.set('#26101a').lerp(new THREE.Color(RED), t * t); return t * t * 1.3; });
+    cone.translate(0, 0.46 + hh * 0.3, 0).rotateZ(b).rotateY(a).translate(0, -L, 0);
+    parts.push(cone);
+  }
+  return merge(parts);
+}
+
+/** Lama roxa: não derruba, mas atrasa. Bolhas acesas para enxergar de longe. */
+function makeMud() {
+  const parts = [];
+  const g = new THREE.CircleGeometry(1, 28, 0, 6.283).rotateX(-Math.PI / 2);
+  const gp = g.attributes.position;
+  for (let i = 0; i < gp.count; i++) {
+    const x = gp.getX(i), z = gp.getZ(i);
+    const a = Math.atan2(z, x);
+    const k = 1 + Math.sin(a * 5) * 0.09 + Math.sin(a * 11) * 0.05;
+    gp.setXYZ(i, x * 0.86 * k, 0.04, z * 1.95 * k);
+  }
+  g.computeVertexNormals();
+  paintGeo(g, (c, x, y, z) => { c.set('#2a1036').lerp(new THREE.Color('#5a1f73'), fbm3(x * 2.2, 3, z * 2.2)); return 0.28; });
+  parts.push(g);
+  const r = rng(31);
+  for (let i = 0; i < 11; i++) {
+    const a = r() * 6.283, d = Math.sqrt(r()) * 0.82;
+    const rad = 0.05 + r() * 0.08;
+    const b = new THREE.SphereGeometry(rad, 8, 6, 0, 6.283, 0, 1.7).translate(Math.cos(a) * d * 0.8, 0.04, Math.sin(a) * d * 1.8);
+    parts.push(paintGeo(b, (c) => { c.set('#d675ff'); return 0.95; }));
+  }
   return merge(parts);
 }
 
@@ -193,8 +250,10 @@ export class Props {
     this.mat = patch(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.82 }), { glow: true, glowSelf: true, glowAmp: 3.6, rim: 0.35 });
     const W3 = LANE * 3 + 1.6;
     this.kinds = {
-      log: { geo: makeLog(1.75), type: 'jump', h: 0.72, hw: 0.75, hz: 0.42 },
-      logWide: { geo: makeLog(W3 + 2.2), type: 'jump', h: 0.72, hw: 9, hz: 0.42 },
+      log: { geo: makeBranch(1.9), type: 'jump', h: 0.66, hw: 0.75, hz: 0.42 },
+      logWide: { geo: makeBranch(W3 + 2.2), type: 'jump', h: 0.66, hw: 9, hz: 0.42 },
+      vine: { geo: makeVine(), type: 'block', hw: 0.52, hz: 0.5 },
+      mud: { geo: makeMud(), type: 'mud', hw: 0.62, hz: 1.45 },
       stump: { geo: makeStump(), type: 'jump', h: 0.62, hw: 0.55, hz: 0.5 },
       arch: { geo: makeRootArch(W3), type: 'slide', hw: 9, hz: 0.4 },
       rock: { geo: makeBoulder(), type: 'block', hw: 0.72, hz: 0.72 },
@@ -202,7 +261,7 @@ export class Props {
       spring: { geo: makeSpring(), type: 'spring', hw: 0.72, hz: 0.5 },
     };
     this.pool = {};
-    const preN = { log: 8, logWide: 3, stump: 8, arch: 4, rock: 12, bramble: 4, spring: 3 };
+    const preN = { log: 8, logWide: 3, stump: 8, arch: 4, rock: 12, bramble: 4, spring: 3, vine: 4, mud: 5 };
     for (const k in this.kinds) {
       this.pool[k] = [];
       for (let i = 0; i < preN[k]; i++) this.pool[k].push(this.spawnMesh(k));
@@ -237,6 +296,8 @@ export class Props {
     const m = this.pool[kind].pop() || this.spawnMesh(kind);
     m.visible = true;
     m.position.set(x, 0, z);
+    if (kind === 'vine') m.position.set(0, VINE_LEN + 0.95, z);
+    if (kind === 'mud') m.castShadow = false;
     m.rotation.set(0, kind === 'rock' || kind === 'stump' ? Math.random() * 6.283 : 0, 0);
     m.scale.setScalar(1);
     const k = this.kinds[kind];
